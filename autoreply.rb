@@ -16,18 +16,25 @@ def rand_uuid
 end
 
 def generate_cert(uuid)
-	key = OpenSSL::PKey::RSA.new 1337
+	key = OpenSSL::PKey::RSA.new 512
 	cert = OpenSSL::X509::Certificate.new
 	cert.version = 2
 	cert.serial  = 0x1337
 	cert.subject = OpenSSL::X509::Name.parse "/DC=klink/DC=name/CN=PoC #{uuid}"
 	cert.issuer  = OpenSSL::X509::Name.parse "/DC=klink/DC=name/CN=PoC CA"
 	cert.public_key = key.public_key
-	cert.not_before = Time.now
+	cert.not_before = Time.now - 24*60*60
 	cert.not_after = cert.not_before + 1*365*24*60*60
 	ef = OpenSSL::X509::ExtensionFactory.new
 	cert.add_extension(ef.create_extension("authorityInfoAccess", "caIssuers;URI:http://www.klink.name/security/aia.cgi?action=report&uuid=#{uuid}"))
+	# fails
+	#cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash"))
+	#cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid,issuer:always"))
+	cert.add_extension(ef.create_extension("basicConstraints", "CA:FALSE"))
+	cert.add_extension(ef.create_extension("keyUsage", "digitalSignature,keyEncipherment"))
+	cert.add_extension(ef.create_extension("extendedKeyUsage", "emailProtection"))
 	cert.sign(key, OpenSSL::Digest::SHA1.new)
+	puts cert
 	[key, cert]
 end
 
